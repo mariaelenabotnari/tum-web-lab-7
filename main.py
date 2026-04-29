@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from auth import create_access_token
+from auth import create_access_token, decode_token, ROLE_PERMISSIONS
 
 app = FastAPI(title="CineTrack API")
 
@@ -18,26 +18,16 @@ class TokenRequest(BaseModel):
 
 @app.post("/token")
 def get_token(request: TokenRequest):
-    allowed_roles = ["ADMIN", "WRITER", "VISITOR"]
-    if request.role not in allowed_roles:
-        raise HTTPException(status_code=400, detail=f"Role must be one of {allowed_roles}")
+    if request.role not in ["ADMIN", "WRITER", "VISITOR"]:
+        raise HTTPException(status_code=400, detail="Role must be ADMIN, WRITER or VISITOR")
 
-    permissions = {
-        "ADMIN":   ["READ", "WRITE", "DELETE"],
-        "WRITER":  ["READ", "WRITE"],
-        "VISITOR": ["READ"],
-    }
-
-    token = create_access_token({
-        "role": request.role,
-        "permissions": permissions[request.role]
-    })
+    token = create_access_token(role=request.role)
 
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": request.role,
-        "permissions": permissions[request.role]
+        "permissions": ROLE_PERMISSIONS[request.role]
     }
 
 @app.get("/")

@@ -1,19 +1,44 @@
-from datetime import datetime, timedelta
+import os
+from datetime import datetime, timezone, timedelta
+from fastapi import HTTPException
 from jose import JWTError, jwt
 
-SECRET_KEY = "cinetrack-secret-key-2026"
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1
 
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+ROLE_PERMISSIONS = {
+    "ADMIN":   ["READ", "WRITE", "DELETE"],
+    "WRITER":  ["READ", "WRITE"],
+    "VISITOR": ["READ"],
+}
 
-def decode_token(token: str):
+def create_access_token(role: str) -> str:
+    if role not in ROLE_PERMISSIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of {list(ROLE_PERMISSIONS.keys())}")
+
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": f"user_{role.lower()}",
+        "role": role,
+        "permissions": ROLE_PERMISSIONS[role],
+        "iat": now,
+        "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        if "role" not in payload:
+            raise HTTPException(status_code=401, detail="Token missing role")
+        if "permissions" not in payload:
+            raise HTTPException(status_code=401, detail="Token missing permissions")
+        if payload["role"] not in ROLE_PERMISSIONS:
+            raise HTTPException(status_code=401, detail="Token has invalid role")
+
         return payload
-    except JWTError:
-        return None
+
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid or expired token: {str(e)}")
