@@ -55,9 +55,31 @@ def root():
 def get_movies(
     skip: int = 0,
     limit: int = 10,
+    search: Optional[str] = None,
+    genre: Optional[str] = None,
+    min_rating: Optional[float] = None,
+    max_rating: Optional[float] = None,
+    is_favorite: Optional[bool] = None,
     user=Depends(require_permission("READ"))
 ):
-    return database.movies_db[skip: skip + limit]
+    results = database.movies_db
+
+    if search:
+        results = [m for m in results if search.lower() in m.title.lower()]
+
+    if genre:
+        results = [m for m in results if m.genre.lower() == genre.lower()]
+
+    if min_rating is not None:
+        results = [m for m in results if m.rating is not None and m.rating >= min_rating]
+
+    if max_rating is not None:
+        results = [m for m in results if m.rating is not None and m.rating <= max_rating]
+
+    if is_favorite is not None:
+        results = [m for m in results if m.isFavorite == is_favorite]
+
+    return results[skip: skip + limit]
 
 @app.get("/movies/{movie_id}", response_model=Movie)
 def get_movie(
