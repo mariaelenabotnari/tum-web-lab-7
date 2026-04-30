@@ -15,6 +15,9 @@ class Movie(BaseModel):
     isFavorite: bool = False
     comments: List[Comment] = []
 
+    class Config:
+        from_attributes = True
+
 class MovieCreate(BaseModel):
     title: str
     rating: Optional[float] = None

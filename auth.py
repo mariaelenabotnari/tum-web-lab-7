@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone, timedelta
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends, Header
 from jose import JWTError, jwt
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -8,8 +8,8 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1
 
 ROLE_PERMISSIONS = {
-    "ADMIN":   ["READ", "WRITE", "DELETE"],
-    "WRITER":  ["READ", "WRITE"],
+    "ADMIN": ["READ", "WRITE", "DELETE"],
+    "WRITER": ["READ", "WRITE"],
     "VISITOR": ["READ"],
 }
 
@@ -42,3 +42,16 @@ def decode_token(token: str) -> dict:
 
     except JWTError as e:
         raise HTTPException(status_code=401, detail=f"Invalid or expired token: {str(e)}")
+
+def get_current_user(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+    token = authorization.split(" ")[1]
+    return decode_token(token)
+
+def require_permission(permission: str):
+    def checker(user=Depends(get_current_user)):
+        if permission not in user.get("permissions", []):
+            raise HTTPException(status_code=403, detail=f"Permission '{permission}' required")
+        return user
+    return checker
