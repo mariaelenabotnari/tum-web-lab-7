@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 from auth import create_access_token, decode_token, ROLE_PERMISSIONS
-from models import Movie, MovieCreate, MovieUpdate
+from models import Movie, MovieCreate, MovieUpdate, Comment
 import database
 
 app = FastAPI(title="CineTrack API")
@@ -129,3 +129,68 @@ def delete_movie(
         raise HTTPException(status_code=404, detail="Movie not found")
     database.movies_db.remove(movie)
     return None
+
+@app.get("/movies/{movie_id}/comments", response_model=List[Comment])
+def get_comments(
+    movie_id: int,
+    user=Depends(require_permission("READ"))
+):
+    movie = next((m for m in database.movies_db if m.id == movie_id), None)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+    return movie.comments
+
+@app.post("/movies/{movie_id}/comments", response_model=Movie, status_code=201)
+def add_comment(
+    movie_id: int,
+    comment: Comment,
+    user=Depends(require_permission("WRITE"))
+):
+    movie = next((m for m in database.movies_db if m.id == movie_id), None)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    idx = database.movies_db.index(movie)
+    updated = movie.dict()
+    updated["comments"].append(comment.dict())
+    database.movies_db[idx] = Movie(**updated)
+    return database.movies_db[idx]
+
+@app.delete("/movies/{movie_id}/comments/{comment_index}", response_model=Movie)
+def delete_comment(
+    movie_id: int,
+    comment_index: int,
+    user=Depends(require_permission("DELETE"))
+):
+    movie = next((m for m in database.movies_db if m.id == movie_id), None)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    if comment_index < 0 or comment_index >= len(movie.comments):
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    idx = database.movies_db.index(movie)
+    updated = movie.dict()
+    updated["comments"].pop(comment_index)
+    database.movies_db[idx] = Movie(**updated)
+    return database.movies_db[idx]
+
+@app.put("/movies/{movie_id}/comments/{comment_index}", response_model=Movie)
+def edit_comment(
+    movie_id: int,
+    comment_index: int,
+    comment: Comment,
+    user=Depends(require_permission("WRITE"))
+):
+    movie = next((m for m in database.movies_db if m.id == movie_id), None)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    if comment_index < 0 or comment_index >= len(movie.comments):
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    idx = database.movies_db.index(movie)
+    updated = movie.dict()
+    updated["comments"][comment_index] = comment.dict()
+    database.movies_db[idx] = Movie(**updated)
+    return database.movies_db[idx]
