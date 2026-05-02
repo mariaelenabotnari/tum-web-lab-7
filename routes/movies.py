@@ -114,3 +114,74 @@ def delete_movie(
     db.delete(movie)
     db.commit()
     return None
+
+@router.patch("/{movie_id}/favorite", response_model=movie.Movie)
+def toggle_favorite(
+    movie_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("WRITE"))
+):
+    if movie_id <= 0:
+        raise HTTPException(status_code=400, detail="Movie ID must be a positive integer")
+    movie = db.query(db_models.MovieDB).filter(db_models.MovieDB.id == movie_id).first()
+    if not movie:
+        raise HTTPException(status_code=404, detail=f"Movie with id {movie_id} not found")
+    movie.isFavorite = not movie.isFavorite
+    db.commit()
+    db.refresh(movie)
+    return movie
+
+@router.patch("/{movie_id}/rating", response_model=movie.Movie)
+def set_rating(
+    movie_id: int,
+    rating: float = Query(..., ge=0, le=10, description="Rating value between 0 and 10"),
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("WRITE"))
+):
+    if movie_id <= 0:
+        raise HTTPException(status_code=400, detail="Movie ID must be a positive integer")
+    movie = db.query(db_models.MovieDB).filter(db_models.MovieDB.id == movie_id).first()
+    if not movie:
+        raise HTTPException(status_code=404, detail=f"Movie with id {movie_id} not found")
+    movie.rating = round(rating, 1)
+    db.commit()
+    db.refresh(movie)
+    return movie
+
+@router.delete("/{movie_id}/rating", response_model=movie.Movie)
+def remove_rating(
+    movie_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("WRITE"))
+):
+    if movie_id <= 0:
+        raise HTTPException(status_code=400, detail="Movie ID must be a positive integer")
+    movie = db.query(db_models.MovieDB).filter(db_models.MovieDB.id == movie_id).first()
+    if not movie:
+        raise HTTPException(status_code=404, detail=f"Movie with id {movie_id} not found")
+    movie.rating = None
+    db.commit()
+    db.refresh(movie)
+    return movie
+
+@router.get("/favorites", response_model=List[movie.Movie])
+def get_favorites(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("READ"))
+):
+    return db.query(db_models.MovieDB).filter(
+        db_models.MovieDB.isFavorite == True
+    ).offset(skip).limit(limit).all()
+
+@router.get("/unrated", response_model=List[movie.Movie])
+def get_unrated(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("READ"))
+):
+    return db.query(db_models.MovieDB).filter(
+        db_models.MovieDB.rating == None
+    ).offset(skip).limit(limit).all()
