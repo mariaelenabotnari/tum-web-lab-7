@@ -1,14 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from auth import require_permission
+from auth import require_permission, security
 from database import get_db
 from models import movie, comment
 import db_models
-
-security = HTTPBearer()
 
 router = APIRouter(
     prefix="/movies",
@@ -45,6 +42,28 @@ def get_movies(
         query = query.filter(db_models.MovieDB.isFavorite == is_favorite)
 
     return query.offset(skip).limit(limit).all()
+
+@router.get("/favorites", response_model=List[movie.Movie])
+def get_favorites(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("READ"))
+):
+    return db.query(db_models.MovieDB).filter(
+        db_models.MovieDB.isFavorite == True
+    ).offset(skip).limit(limit).all()
+
+@router.get("/unrated", response_model=List[movie.Movie])
+def get_unrated(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user=Depends(require_permission("READ"))
+):
+    return db.query(db_models.MovieDB).filter(
+        db_models.MovieDB.rating == None
+    ).offset(skip).limit(limit).all()
 
 @router.get("/{movie_id}", response_model=movie.Movie)
 def get_movie(
@@ -163,25 +182,3 @@ def remove_rating(
     db.commit()
     db.refresh(movie)
     return movie
-
-@router.get("/favorites", response_model=List[movie.Movie])
-def get_favorites(
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=10, ge=1, le=100),
-    db: Session = Depends(get_db),
-    user=Depends(require_permission("READ"))
-):
-    return db.query(db_models.MovieDB).filter(
-        db_models.MovieDB.isFavorite == True
-    ).offset(skip).limit(limit).all()
-
-@router.get("/unrated", response_model=List[movie.Movie])
-def get_unrated(
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=10, ge=1, le=100),
-    db: Session = Depends(get_db),
-    user=Depends(require_permission("READ"))
-):
-    return db.query(db_models.MovieDB).filter(
-        db_models.MovieDB.rating == None
-    ).offset(skip).limit(limit).all()

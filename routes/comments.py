@@ -1,15 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from typing import List
-
+from auth import security
 from auth import require_permission
 from database import get_db
 from models import comment, movie
 
 import db_models
-
-security = HTTPBearer()
 
 router = APIRouter(
     prefix="/movies",
