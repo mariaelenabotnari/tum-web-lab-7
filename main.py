@@ -11,7 +11,11 @@ db_models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="CineTrack API",
-    description="Movie tracking API with JWT authentication",
+    description="""
+    Requires a Bearer JWT token. Get one from `POST /v1/auth/token`.
+
+    Roles: ADMIN (READ, WRITE, DELETE), WRITER (READ, WRITE), VISITOR (READ).
+    """,
     version="1.0.0",
     swagger_ui_parameters={"persistAuthorization": True},
 )
@@ -46,5 +50,5 @@ def get_token(request: TokenRequest):
 def root():
     return {"message": "CineTrack API is running"}
 
-app.include_router(movies_router)
-app.include_router(comments_router)
+app.include_router(movies_router, prefix="/v1")
+app.include_router(comments_router, prefix="/v1")

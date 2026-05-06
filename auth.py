@@ -17,7 +17,12 @@ ROLE_PERMISSIONS = {
     "VISITOR": ["READ"],
 }
 
-security = HTTPBearer()
+security = HTTPBearer(
+    description="Paste a JWT token. Roles and their permissions:\n\n"
+                "- ADMIN -> READ, WRITE, DELETE\n"
+                "- WRITER -> READ, WRITE\n"
+                "- VISITOR -> READ"
+)
 
 def create_access_token(role: str) -> str:
     if role not in ROLE_PERMISSIONS:
